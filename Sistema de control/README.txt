@@ -27,7 +27,7 @@ donde norma2 es la raíz cuadrada de la suma de cuadrados de los valores de la v
 Este código utiliza la librería desarrollada por n-elia (2021) disponible públicamente en GitHub:
 
 Repositorio original:  
-[https://github.com/n-elia/MAX30102-MicroPython-driver](https://github.com/n-elia/MAX30102-MicroPython-driver)
+https://github.com/n-elia/MAX30102-MicroPython-driver
 
 Archivos utilizados del repositorio original:
 - `__init__.py` → contiene la clase `MAX30102` para manejo del sensor.
