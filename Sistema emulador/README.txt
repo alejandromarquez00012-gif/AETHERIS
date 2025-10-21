@@ -99,3 +99,6 @@ avr-gcc -mmcu=atmega328p -DF_CPU=16000000UL -Os -o main.elf Seno_leds_adc_1s_tim
 avr-objcopy -O ihex -R .eeprom main.elf main.hex
 avrdude -c usbasp -p m328p -U flash:w:main.hex:i
 
+##  Esquemático del sistema
+
+![Esquemático_onda_seoidal](Diagrama esquemático.png)
