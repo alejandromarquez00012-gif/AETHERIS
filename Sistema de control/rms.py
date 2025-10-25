@@ -1,10 +1,8 @@
 from machine import sleep, SoftI2C, Pin
 from utime import ticks_diff, ticks_ms
 from _init_ import MAX30102, MAX30105_PULSE_AMP_MEDIUM
-
+import json 
 import math
-
-
 
 class HeartRateMonitor:
     def __init__(self, ventana=10):
@@ -53,7 +51,6 @@ def main():
         if sensor.available():
             red = sensor.pop_red_from_storage()
             #ir = sensor.pop_ir_from_storage()
-
             
             monitor.agregarElemento(red)
             Spo2=monitor.norma2()
@@ -63,15 +60,19 @@ def main():
                 ventana_red.pop(0)
                 #ventana_ir.pop(0)
             
-            
-            
-            if(Spo2 is not None):
-                print("RED: {:04d}, Promedio: {:0.2f}".format(red,Spo2))
-
-            else:
-                None
-                print("RED: {:04d}, Promedio: ------".format(red))
-            
-
+#             if(Spo2 is not None):
+#                 print("RED: {:04d}, Promedio: {:0.2f}".format(red,Spo2))
+#             else:
+#                 None
+#                 print("RED: {:04d}, Promedio: ------".format(red))
+#                 
+            print(json.dumps(
+            {
+            "spo2":  round(Spo2, 1)
+            #La función round() sirve para redondear números en Python.
+            #"flujo": round(flujo_lm, 2)
+            }
+        ))
+                
 if __name__ == "__main__":
     main()
