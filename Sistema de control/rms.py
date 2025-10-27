@@ -60,18 +60,19 @@ def main():
                 ventana_red.pop(0)
                 #ventana_ir.pop(0)
             
-#             if(Spo2 is not None):
+#             
 #                 print("RED: {:04d}, Promedio: {:0.2f}".format(red,Spo2))
 #             else:
 #                 None
 #                 print("RED: {:04d}, Promedio: ------".format(red))
-#                 
-            print(json.dumps(
-            {
-            "spo2":  round(Spo2, 1)
+#
+            if(Spo2 is not None):
+                print(json.dumps(
+                {
+                "spo2":  round(Spo2, 1)
             #La función round() sirve para redondear números en Python.
             #"flujo": round(flujo_lm, 2)
-            }
+                }
         ))
                 
 if __name__ == "__main__":
