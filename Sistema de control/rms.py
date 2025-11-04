@@ -118,35 +118,6 @@ def main():
             cmd = procesar_comando(cmd)
             if cmd is not None:
                 print(cmd)
-
-        if evento:  # hay algo disponible en stdin
-            linea = sys.stdin.readline()
-            if not linea:
-                # llegó algo raro vacío, ignoramos
-                pass
-            else:
-                linea = linea.strip()  # <- limpiar \n, \r, espacios etc.
-
-                if linea != "":
-                    try:
-                        comando = json.loads(linea)
-                    except Exception:
-                        # si mandaron basura que no es JSON, avisamos y seguimos
-                        print(json.dumps({"ack": False, "error": "json_invalido"}))
-                else:
-                    # comando sí se pudo parsear
-                    if comando.get("led") == "on":
-                        set_color(255, 255, 255)
-                        print(json.dumps({"ack": True, "led": "on"}))
-
-                    elif comando.get("led") == "off":
-                        set_color(0, 0, 0)
-                        print(json.dumps({"ack": True, "led": "off"}))
-
-                    else:
-                        print(json.dumps({"ack": False, "error": "comando no identificado"}))
-
-        
         
         sensor.check()
         if sensor.available():
