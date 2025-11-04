@@ -273,7 +273,7 @@ cantidad_muestra_inicial = queue.Queue(maxsize=200)
 SERIAL_PORT = "/dev/ttyACM0"   
 BAUDRATE    = 115200
 
-tiempo_muestra = 0.3                 
+tiempo_muestra = 1.2                 
 PUNTOS_POR_MINUTO  = int(60 / tiempo_muestra)   
 PUNTOS_GRAFICAR   = PUNTOS_POR_MINUTO * 1    
 
@@ -379,20 +379,20 @@ cb_flujo = comboBox(
                     inicial="SpO2"
 )
 cb_rango_auto = comboBox(
-    subframe_grafica_auto,
-    ["1 min", "2 min", "3 min", "4 min", "5 min"],
-    on_cambio_rango,
-    0.5, 0.93,
-    variable=rango_var,
-    inicial="1 min"
+                    subframe_grafica_auto,
+                    ["1 min", "2 min", "3 min", "4 min", "5 min"],
+                    on_cambio_rango,
+                    0.5, 0.93,
+                    variable=rango_var,
+                    inicial="1 min"
 )
 cb_rango_manual = comboBox(
-    subframe_grafica_manual,
-    ["1 min", "2 min", "3 min", "4 min", "5 min"],
-    on_cambio_rango,
-    0.5, 0.93,
-    variable=rango_var,       # comparte la misma selección
-    inicial=rango_var.get()
+                    subframe_grafica_manual,
+                    ["1 min", "2 min", "3 min", "4 min", "5 min"],
+                    on_cambio_rango,
+                    0.5, 0.93,
+                    variable=rango_var,       # comparte la misma selección
+                    inicial=rango_var.get()
 )
 """ """ """ CREACION DE COMBO BOX """ """ """
 
