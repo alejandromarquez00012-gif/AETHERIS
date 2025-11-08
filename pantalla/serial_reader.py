@@ -14,7 +14,7 @@ BAUDRATE    = 115200
 # FUNCIÓN PRINCIPAL
 # ============================================================
 
-def iniciar_lector_serial(app,Vstr=None,
+def iniciar_lector_serial(app,var=None,
                           serial_port=SERIAL_PORT,
                            baudrate=BAUDRATE
                            ):
@@ -41,16 +41,31 @@ def iniciar_lector_serial(app,Vstr=None,
             print("[raw]",s)
             try:
                 data = json.loads(s)
-                var = data.get('led')
-                print("[var]",var)
-            except Exception as e:
-                print("JSON ERROR:", e, "| REPR:", repr(s))
-                continue
+                if not isinstance(data, dict):
+                    print("[WARN] No es un diccionario:", type(data))
+                    continue
 
+                # --- Detectar clave raíz ---
+                claves = list(data.keys())    # obtiene las claves
+                if not claves:
+                    print("[WARN] Diccionario vacío")
+                    continue
+
+                clave = claves[0]             # toma la primera (ej. 'led', 'grafica', 'controlador')
+                print("[clave]", clave)
+            except Exception as e:
+                    print("JSON ERROR:", e, "| REPR:", repr(s))
+                    continue
 
             def _upd():
+                if clave is "grafica":
+                    var=
+                elif clave is "control":
+                    None
+                elif clave is "alarmas":
+                    None
                 # actualizar variable visible en el GUI
-                if var == "on":
+                """ if var == "on":
                     Vstr.set("rx on")
                 elif var == "off":
                     Vstr.set("rx off")
@@ -58,7 +73,8 @@ def iniciar_lector_serial(app,Vstr=None,
                     Vstr.set("es none")
                 else:
                     Vstr.set("rx ???")
-                print("se actualizo")
+                print("se actualizo") """
+                None
 
             # Actualiza en el hilo del GUI
             app.after(0, _upd)
