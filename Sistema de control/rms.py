@@ -29,76 +29,55 @@ recepcion.register(sys.stdin, uselect.POLLIN)
 
 
 def leer_comando():
-    """
-    No bloquea.
-    - Si NO hay datos -> regresa None
-    - Si hay datos pero no es JSON válido -> regresa {"_error_parse": "..."}
-    - Si hay datos válidos -> regresa el dict decodificado
-    """
+    cmd = None
     evento = recepcion.poll(0)
-    if not evento:
-        return None  # nada nuevo
-
-    # hay algo en stdin
-    linea = sys.stdin.readline()
-    if not linea:
-        return None  # línea vacía/rara, ignoramos
-
-    linea = linea.strip()
-    if linea == "":
-        return None  # pura cadena vacía, ignoramos
-
-    try:
-        comando = json.loads(linea)
-        return comando
-    except Exception:
-        # devolvemos un dict especial que indica error de parseo
-        return {"_error_parse": "json_invalido", "_raw": linea}
+    if evento:
+        # hay algo en stdin
+        linea = sys.stdin.readline()
+        if  linea:
+            linea = linea.strip()
+            if linea is not "":
+                try:
+                    cmd = json.loads(linea)
+                except Exception:
+                    cmd = {"_error_parse": "json_invalido", "_raw": linea}
+    return cmd
 
 def procesar_comando(cmd):
-    """
-    Recibe un diccionario (cmd) y decide qué hacer.
-    Regresa SIEMPRE un diccionario de respuesta para imprimir con json.dumps().
-    """
-    if cmd is None:
-        return None
-    # 1. primero checamos si venía roto
-    if "_error_parse" in cmd:
-        return {
-            "ack": False,
-            "error": cmd["_error_parse"],
-            "raw": cmd.get("_raw", "")
-        }
+    _cmd = None
+    if cmd is not None:
+        if "_error_parse" in cmd:
+            _cmd = {
+                "ack": False,
+                "error": cmd["_error_parse"],
+                "raw": cmd.get("_raw", "")
+            }
 
-    # 2. ejemplo simple: control de LED
-
-    if cmd.get("led") == "on":
-#         set_color(255, 255, 255)
-        return {"ack": True, "led": "on"}
-
-    elif cmd.get("led") == "off":
-#         set_color(0, 0, 0)
-        return {"ack": True, "led": "off"}
-    return {"ack": False, "error": "comando_no_identificado", "cmd": cmd}
+        elif cmd.get("led") == "on":
+            _cmd = {"ack": True, "led": "on"}
+            
+        elif cmd.get("led") == "off":
+            _cmd = {"ack": True, "led": "off"}
+        else:
+            _cmd = {"ack": False, "error": "comando_no_identificado", "cmd": cmd}
+    return _cmd
 
 # ----------------- Programa Principal -----------------
 def main():
     i2c = SoftI2C(sda=Pin(6), scl=Pin(7), freq=400000)
     sensor = MAX30102(i2c=i2c)
     on=None
-#     while not on:
+
     if sensor.i2c_address not in i2c.scan():
         print({"sensor":"no identificado"})
         on=False
-#         return
+
     elif not sensor.check_part_id():
         print({"sensor":"I2C device ID not corresponding to MAX30102 or MAX30105."})
-#         return
+
     else:
         on=True
         print({"sensor":"Sensor connected and recognized."})
-# # # # # # # # # # #     BORRAR CONDICIONAL    
-    if on:		
         sensor.setup_sensor()
         sensor.set_sample_rate(3200)
         sensor.set_fifo_average(32)
@@ -112,32 +91,26 @@ def main():
     
     
     while True:
-# # # # # # # # #         BORRAR CONDICIONAL
-        while not on:
-            cmd = leer_comando()
-            cmd = procesar_comando(cmd)
-            if cmd is not None:
-                print(cmd)
-        
-        sensor.check()
-        if sensor.available():
-            red = sensor.pop_red_from_storage()
-            #ir = sensor.pop_ir_from_storage()
-            
-            monitor.agregarElemento(red)
-            Spo2=monitor.norma2()
-            ventana_red.append(red)
-            
-            if len(ventana_red) > VENTANA_SIZE:
-                ventana_red.pop(0)
 
-            if(Spo2 is not None):
-                print(json.dumps(
-                {
-                "spo2":  round(Spo2, 1)
+        cmd = leer_comando()
+        cmd = procesar_comando(cmd)
+        if cmd is not None:
+            print(json.dumps(cmd))
+        if on:
+            sensor.check()
+            if sensor.available():
+                red = sensor.pop_red_from_storage()
+                #ir = sensor.pop_ir_from_storage()
+                
+                monitor.agregarElemento(red)
+                Spo2=monitor.norma2()
+                ventana_red.append(red)
+                
+                if len(ventana_red) > VENTANA_SIZE:
+                    ventana_red.pop(0)
 
-                }
-        ))
+                if(Spo2 is not None):
+                    print(json.dumps({"spo2":  round(Spo2, 1)}))
                 
 if __name__ == "__main__":
     main()
