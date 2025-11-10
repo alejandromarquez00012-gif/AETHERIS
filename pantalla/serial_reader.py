@@ -38,51 +38,17 @@ def iniciar_lector_serial(app,var=None,
             if not line:
                 continue
             s = line.decode("utf-8",errors="ignore").strip()
-            print("[raw]",s)
             try:
                 data = json.loads(s)
-                if not isinstance(data, dict):
-                    print("[WARN] No es un diccionario:", type(data))
-                    continue
-
-                # --- Detectar clave raíz ---
-                claves = list(data.keys())    # obtiene las claves
-                if not claves:
-                    print("[WARN] Diccionario vacío")
-                    continue
-
-                clave = claves[0]             # toma la primera (ej. 'led', 'grafica', 'controlador')
-                print("[clave]", clave)
             except Exception as e:
                     print("JSON ERROR:", e, "| REPR:", repr(s))
                     continue
 
             def _upd():
-                if clave is "grafica":
-                    var=
-                elif clave is "control":
-                    None
-                elif clave is "alarmas":
-                    None
-                # actualizar variable visible en el GUI
-                """ if var == "on":
-                    Vstr.set("rx on")
-                elif var == "off":
-                    Vstr.set("rx off")
-                elif var is None:
-                    Vstr.set("es none")
-                else:
-                    Vstr.set("rx ???")
-                print("se actualizo") """
                 None
 
             # Actualiza en el hilo del GUI
             app.after(0, _upd)
-
-            """ try:
-                cantidad_muestra_inicial.put_nowait(spo2)
-            except queue.Full:
-                pass """
 
     # Hilo en modo demonio
     hilo = threading.Thread(target=lector_serial, daemon=True)
