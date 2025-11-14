@@ -14,55 +14,67 @@ PWM_PIN = 3
 pwm = PWM(Pin(PWM_PIN), freq=1000, duty_u16=0)
 
 # ----------- CONSTANTES DE CALIBRACIÓN (V -> LPM) -----------
-VMAX_o2 = 1.56   # Voltaje que corresponde a 0 L/min
-VMIN    = 1.4   # Voltaje que corresponde a 15 L/min
+VMAX_O2 = 1.6     # voltaje = 0 psi
+VMIN    = 1.26    # voltaje = 50 psi
 
-def linmap(x, x1, y1, x2, y2):
-    t = (x - x1) / (x2 - x1)
-    return y1 + t * (y2 - y1)
+K_FLOW = 5.2698
+C0     = 103.05
+C1     = 73.53
 
 def v_to_lpm(v):
-    # recorte de voltaje útil a tus anclas
-    if v < VMIN:       v_clip = VMIN
-    elif v > VMAX_o2:  v_clip = VMAX_o2
-    else:              v_clip = v
-   
-    y = linmap(v_clip, VMIN, 15.8, VMAX_o2, 0.0)
+    if v < VMIN:
+        v = VMIN
+    elif v > VMAX_O2:
+        v = VMAX_O2
 
-    if y < 0.0:   y = 0.0
-    if y > 15:  y = 15
-    return y
+    inside = C0 - C1 * v
+    if inside <= 0:
+        return 0.0
 
-# ----------- CONTROLADOR POR UBICACIÓN DE POLOS
-A1 = 1.984321652
-A2 = 0.9843139066
-B1 = 0.9257012353
-B2 = 1.825199537
-B3 = 0.8996790191
-Ts = 0.005
+    q = K_FLOW * math.sqrt(inside)
 
+    if q < 0.0:
+        q = 0.0
+    elif q > 15.0:
+        q = 15.0
+
+    return q
+
+
+ALPHA = 0.01       
+DEADBAND = 0.1   
+_flujo_filtrado = None
+
+def filtrar_flujo(q):
+
+    global _flujo_filtrado
+    if _flujo_filtrado is None:
+        _flujo_filtrado = q
+        return _flujo_filtrado
+
+    if abs(q - _flujo_filtrado) < DEADBAND:
+        return _flujo_filtrado
+
+    _flujo_filtrado += ALPHA * (q - _flujo_filtrado)
+    return _flujo_filtrado
+
+
+# ----------- CONTROLADOR
 u1 = 0.0; u2 = 0.0
 e1 = 0.0; e2 = 0.0; e3 = 0.0
 u  = 0.0
- 
-# KP = 5920.4118
-# KI_TS = 8700.883072     # = Ki*Ts
-# KD_div_TS = 7909.363 # = Kd/Ts
 
-# KP = .161804
-# KI_TS = 0.001#0.01388152     # = Ki*Ts
-# KD_div_TS =0#122.21846 # = Kd/Ts
+r = 2
 
-
-KP = 3.894026662
-KI_TS = 0.1678643955#0.01388152     # = Ki*Ts
-
-
-# Referencia en L/min (dimensiones unificadas)
-r = 11
-
-Y_MAX = 17.0   # límite vertical
-draw_counter = 0
+if r >=12:
+    KP = 0.0012166
+    KI_TS = 0.000122166
+elif r >=6:
+    KP = 0.000666
+    KI_TS = 0.000052166
+else:
+    KP = 0.000126
+    KI_TS = 0.000032166
 
 def Limite_control(x):
     if x < 0.0:  return 0.0
@@ -75,56 +87,51 @@ def sat01(x):
 def leer_adc_pwm_control(adc):
     global u1, u2, e1, e2, e3
 
-    # Promedio para reducir ruido
     v_sum = 0.0
     y_sum = 0.0
     for _ in range(20):
-        # Usar read_u16 si existe; si no, fallback a read()*16
         try:
-            raw16 = adc.read_u16()            # 0..65535
+            raw16 = adc.read_u16()            
         except AttributeError:
-            raw16 = adc.read() * 16           # 0..65535 aprox
+            raw16 = adc.read() * 16           
 
-        v = raw16 * 4.1 / 65535.0             # Voltaje real estimado
-        y_i = v_to_lpm(v)                      # Interpolación y recorte
+        v = raw16 * 4.1 / 65535.0
+        y_i = v_to_lpm(v)                      
+        y_if = filtrar_flujo(y_i)
 
         v_sum += v
-        y_sum += y_i
+        y_sum += y_if
 
-    v_avg = v_sum / 20.0        # Voltaje promedio (solo monitoreo)
-    y     = y_sum / 20.0        # Flujo en L/min (retroalimentación)
+    v_avg = v_sum / 20.0
+    y     = y_sum / 20.0
 
-    # --- Control 
     e0 = r - y
-    #u0 = (A1*u1) - (A2*u2) + (B1*e1) - (B2*e2) + (B3*e3)
-    #u0=2*e0
-    #u0=u1+298.6201*(e0-e1)+50.107424*e0
-    u0 = u1 + KP*(e0-e1) + KI_TS*e0# + KD_div_TS*(e2)
-#     u0=r/15
+    err=e0/r*100
+    
+    u0 = u1+ KP*(e0) + KI_TS*e1
     u  = sat01(u0)
 
     pwm.duty_u16(int(u * 65535))
 
-    # Actualizar estados
     u2, u1 = u1, u
     e3, e2, e1 = e2, e1, e0
-    print_row(u,y,v)
-    time.sleep_us(200)
+    print_row(u,y,v,err)
+    time.sleep_us(5000)
     
     
-    return y   # Flujo en L/min
+    return y   
     
 # ----------- UTILIDADES DE IMPRESIÓN / PROMEDIO -----------
 _header_done = False
 _row_count   = 0
 
-def print_row(u0, y_lpm, v):
+def print_row(u0, y_lpm, v, err):
     global _header_done, _row_count
     if not _header_done or _row_count % 25 == 0:  # reimprime encabezado cada 25 filas
         # print(f"{'Control':>12}  {'Retro[LPM]':>12}  {'V':>8}")
         # print(f"{'-'*12}  {'-'*12}  {'-'*8}")
         _header_done = True
-    print(f"{u0:12.4f}  {y_lpm:12.3f}  {v:8.4f}")
+    print(f"{u0:12.4f}  {y_lpm:12.3f}  {v:8.4f}	{err:8.4f}")
     _row_count += 1
 
 def leer_promedio(func, muestras=10):

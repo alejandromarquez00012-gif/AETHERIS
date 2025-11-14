@@ -1,15 +1,15 @@
-def control_flujo(adc, pwm, r, cmd):
-    VMAX_o2 = 1.56   # 0 L/min
-    VMIN    = 1.4   # 15 L/min
-    
-    #PI
-    KP_f    = 3.894026662
-    KI_TS_f = 0.1678643955
-    # PID
-    KP_spo2    = 3.894026662
-    KI_TS_spo2 = 0.1678643955
-    KD_div_TS_spo2 = 0.0
-    
+import math
+
+ALPHA = 0.01       
+DEADBAND = 0.1   
+_flujo_filtrado = None
+VMAX_O2 = 1.6
+VMIN    = 1.26    
+K_FLOW = 5.2698
+C0     = 103.05
+C1     = 73.53
+
+def control_flujo(adc, pwm, r, cmd):    
     st = control_flujo
     if not hasattr(st, "u1"):
         st.u1 = 0.0
@@ -26,6 +26,8 @@ def control_flujo(adc, pwm, r, cmd):
     for _ in range(20):
         raw16 = adc.read() * 16
         v = raw16 * 4.1 / 65535.0
+        y_i = v_to_lpm(v)                      
+        y_if = filtrar_flujo(y_i)
 
         if v < VMIN:       v_med = VMIN
         elif v > VMAX_o2:  v_med = VMAX_o2
@@ -42,14 +44,22 @@ def control_flujo(adc, pwm, r, cmd):
         
     y_prom = y_sum / 20.0
 
-    # --------- Control ----------
     e0 = r - y_prom
 
-    if cmd == 'f': #Flujo
-        u0 = st.u1 + KP*(e0 - st.e1) + KI_TS*e0
-    elif cmd == 's' #SpO2
-        u0 = st.u1 + KP*(e0 - st.e1) + KI_TS*e0 + KD_div_TS*(e0 - 2*st.e1 + st.e2)
+    if cmd == 'f': 
+        if r >=12:
+            KP = 0.0012166
+            KI_TS = 0.000122166
+        elif r >=6:
+            KP = 0.000666
+            KI_TS = 0.000052166
+        else:
+            KP = 0.000126
+            KI_TS = 0.000032166
 
+    elif cmd == 's'
+        u0 = st.u1 + KP*(e0 - st.e1) + KI_TS*e0 + KD_div_TS*(e0 - 2*st.e1 + st.e2)
+        
     if u0 < 0.0:
         u = 0.0
     elif u0 > 1.0:
@@ -59,8 +69,39 @@ def control_flujo(adc, pwm, r, cmd):
 
     pwm.duty_u16(int(u * 65535))
 
-    # Actualiza estados anteriores
     st.u1 = u
     st.e3, st.e2, st.e1 = st.e2, st.e1, e0
     
     return y_prom
+
+def v_to_lpm(v):
+    if v < VMIN:
+        v = VMIN
+    elif v > VMAX_O2:
+        v = VMAX_O2
+
+    inside = C0 - C1 * v
+    if inside <= 0:
+        return 0.0
+
+    q = K_FLOW * math.sqrt(inside)
+
+    if q < 0.0:
+        q = 0.0
+    elif q > 15.0:
+        q = 15.0
+
+    return q
+
+def filtrar_flujo(q):
+
+    global _flujo_filtrado
+    if _flujo_filtrado is None:
+        _flujo_filtrado = q
+        return _flujo_filtrado
+
+    if abs(q - _flujo_filtrado) < DEADBAND:
+        return _flujo_filtrado
+
+    _flujo_filtrado += ALPHA * (q - _flujo_filtrado)
+    return _flujo_filtrado
