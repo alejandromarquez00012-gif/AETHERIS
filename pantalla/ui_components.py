@@ -1,6 +1,100 @@
 import tkinter as tk
 import customtkinter as ctk
 from PIL import Image
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+
+# ============================================================
+# GRAFICA
+# ============================================================
+
+
+def crear_grafica_linea(
+    parent,
+    relx=0.5, rely=0.5,
+    width=520, height=210,
+    titulo="",
+    xlabel="",
+    ylabel="",
+    x_lim=None,
+    y_lim=None,
+    grid=True,
+    linewidth=2
+):
+    """
+    Crea una gráfica de línea de Matplotlib embebida en Tk/CTk.
+    Coloca el canvas con place() y devuelve un dict con referencias útiles.
+
+    return:
+      {
+        "fig": Figure,
+        "ax": Axes,
+        "line": Line2D,
+        "canvas": FigureCanvasTkAgg,
+        "widget": canvas_widget (para .place/.lift),
+      }
+    """
+    fig = Figure(figsize=(width/100.0, height/100.0), dpi=100)
+    ax = fig.add_subplot(111)
+    ax.grid(grid)
+    ax.set_title(titulo)
+    if xlabel: ax.set_xlabel(xlabel)
+    if ylabel: ax.set_ylabel(ylabel)
+    if y_lim is not None:
+        ax.set_ylim(*y_lim)
+    if x_lim is not None:
+        ax.set_xlim(*x_lim)
+
+    # Línea vacía inicial
+    line, = ax.plot([], [], linewidth=linewidth)
+
+    canvas = FigureCanvasTkAgg(fig, master=parent)
+    widget = canvas.get_tk_widget()
+    widget.place(relx=relx, rely=rely, anchor=tk.CENTER, width=width, height=height)
+
+    canvas.draw_idle()
+
+    return {"fig": fig, "ax": ax, "line": line, "canvas": canvas, "widget": widget}
+
+
+def actualizar_grafica_linea(refs, x_data, y_data, autoscale_x=True, autoscale_y=False, y_lim=None):
+    """
+    Actualiza los datos de la línea y redibuja.
+    - refs: dict devuelto por crear_grafica_linea
+    - x_data, y_data: listas/arrays con datos
+    - autoscale_x/autoscale_y: si True, recalcula límites del eje
+    - y_lim: si se indica, fija límites de Y (anula autoscale_y)
+    """
+    line = refs["line"]
+    ax   = refs["ax"]
+    cvs  = refs["canvas"]
+
+    line.set_data(x_data, y_data)
+
+    # Ajustes de límites
+    if autoscale_x:
+        if len(x_data) >= 1:
+            ax.set_xlim(min(x_data), max(x_data))
+        else:
+            ax.set_xlim(0, 1)
+
+    if y_lim is not None:
+        ax.set_ylim(*y_lim)
+    elif autoscale_y:
+        ax.relim()
+        ax.autoscale(axis='y')
+
+    cvs.draw_idle()
+
+
+def limpiar_grafica_linea(refs):
+    """ Limpia la línea (deja sin datos) y refresca. """
+    actualizar_grafica_linea(refs, [], [], autoscale_x=True, autoscale_y=True)
+
+# ============================================================
+# GRAFICA
+# ============================================================
 
 # ============================================================
 # FRAMES / CONTENEDORES
@@ -206,6 +300,30 @@ def crear_boton(
     boton_ = ctk.CTkButton(**kwargs)
     boton_.place(relx=relx, rely=rely, anchor=tk.CENTER)
     return boton_
+def btn_toggle_onoff(btn,on):
+    if on:
+        texto = "ON"
+        color = "green"
+        hover = "green"
+        tcolor = "white"
+    else:
+        texto = "OFF"
+        color = "red"
+        hover = "red"
+        tcolor = "white"
+       
+    btn.configure(
+                text=texto,
+                fg_color=color,    
+                hover_color=hover,
+                text_color=tcolor
+                )
+def btn_seleccionar(btn):
+    btn.configure(border_color = "black",
+                border_width = 5)
+def btn_deseleccionar(btn):
+    btn.configure(border_width = 0)
+
 
 # ============================================================
 # COMBOBOX

@@ -1,69 +1,101 @@
-import serial
-import json
-import threading
-import queue
+# serial_reader.py
+import serial, json, threading, queue, time
 
-
-# objeto global para RX/TX
 ser = None
-# Configuración por defecto
 SERIAL_PORT = "/dev/ttyACM0"
 BAUDRATE    = 115200
 
-# ============================================================
-# FUNCIÓN PRINCIPAL
-# ============================================================
-
-def iniciar_lector_serial(app,var=None,
-                          serial_port=SERIAL_PORT,
-                           baudrate=BAUDRATE
-                           ):
+def _parse_message(s: str):
+    """Devuelve (topic, payload) soportando:
+       A) {"grafica": {...}}  (root única)
     """
-    Inicia un hilo que lee datos JSON desde el puerto serie
-    y actualiza las variables Tkinter y colas recibidas.
+    clave = None
+    dato = None
+    identificado=False
+    try:
+        recepcion = json.loads(s)
+        identificado = True
+    except Exception:
+        pass
+    if identificado:
+        if isinstance(recepcion, dict) : #se recibe una sola clave
+            clave = next(iter(recepcion)) #capturamos a traves del iterador la primer clave
+            dato = recepcion[clave]
 
-    Parámetros:
-    """
+    return clave, dato
+
+
+def iniciar_lector_serial(
+    app,
+    serial_port = SERIAL_PORT,
+    baudrate = BAUDRATE,
+    handlers = None,      #la clave de los handlers deben ser las que vienen del mensaje de thonny
+):
     global ser
-    def lector_serial():
-        global ser
-        try:
-            ser = serial.Serial(serial_port, baudrate, timeout=1)
-        except Exception as e:
-            print(f"[ERROR] No se pudo abrir el puerto serie: {e}")
-            return
+    try:
+        ser = serial.Serial(serial_port, baudrate, timeout=0.2)
+    except Exception as e:
+        print(f"[ERROR] No se pudo abrir el puerto: {e}")
+        return
+    """ topics = {"grafica","control","alarmas","led","ack","error"}
+    queues = None
+    if use_queues:
+        qs = queue_sizes or {}
+        queues = {t: queue.Queue(maxsize=qs.get(t, 100)) for t in topics} """
+    grafica_queue = {"grafica":queue.Queue(maxsize=100)}
 
-        while True:
-            line = ser.readline()
-            if not line:
-                continue
-            s = line.decode("utf-8",errors="ignore").strip()
+
+    _handlers = handlers or {}
+
+    def _dispatch(topic, payload):
+        # 1) Si hay handler, ejecútalo en el hilo de GUI
+        if topic in _handlers:
+            app.after(0, _handlers[topic], payload)
+        # 2) Si no hay handler y hay colas, encola
+        elif topic in grafica_queue:
             try:
-                data = json.loads(s)
-            except Exception as e:
-                    print("JSON ERROR:", e, "| REPR:", repr(s))
+                grafica_queue[topic].put_nowait(payload)
+            except queue.Full:
+                # política: descartar el más viejo
+                try:
+                    _ = grafica_queue[topic].get_nowait()
+                    grafica_queue[topic].put_nowait(payload)
+                except queue.Empty:
+                    pass
+        # 3) Topic desconocido
+        else:
+            print(f"[INFO] topic desconocido: {topic} | payload: {payload}")
+
+    def lector():
+        while True:
+            try:
+                raw = ser.readline()
+                if not raw:
+                    continue
+                s = raw.decode("utf-8", errors="ignore").strip()
+                if not s:
+                    continue
+                # print("[RAW]", s)  # Log opcional
+
+                topic, payload = _parse_message(s)
+                if not topic:
+                    print("[WARN] JSON sin topic reconocido:", s)
                     continue
 
-            def _upd():
-                None
+                _dispatch(topic, payload)
 
-            # Actualiza en el hilo del GUI
-            app.after(0, _upd)
+            except Exception as e:
+                print("[SERIAL READ ERR]", e)
+                time.sleep(0.05)
 
-    # Hilo en modo demonio
-    hilo = threading.Thread(target=lector_serial, daemon=True)
+
+    hilo = threading.Thread(target=lector, daemon=True)
     hilo.start()
+    return grafica_queue
 
-    return hilo
 
 def enviar_comando(data: dict):
-    """
-    Envía un diccionario como JSON al ESP32-C6.
-    Ejemplo: enviar_comando({"led":"on"})
-    """
     global ser
-
-    #print("ser =", ser)
     if ser is None or not ser.is_open:
         print("[TX] Puerto no abierto")
         return
