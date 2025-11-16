@@ -20,20 +20,19 @@ def control_flujo(adc, pwm, r, cmd):
     if not hasattr(st, "e3"):
         st.e3 = 0.0
         
-    # Promedio
     v_sum = 0.0
     y_sum = 0.0
     for _ in range(20):
-        raw16 = adc.read() * 16
-        v = raw16 * 4.1 / 65535.0
+        lectura = adc.read() * 16
+        v = lectura * 4.1 / 65535
         y_i = v_to_lpm(v)                      
         y_if = filtrar_flujo(y_i)
 
         if v < VMIN:       v_med = VMIN
-        elif v > VMAX_o2:  v_med = VMAX_o2
+        elif v > VMAX_O2:  v_med = VMAX_O2
         else:              v_med = v
 
-        t = (v_med - VMIN) / (VMAX_o2 - VMIN)
+        t = (v_med - VMIN) / (VMAX_O2 - VMIN)
         y_i = 15.8 + t * (0.0 - 15.8)
 
         if y_i < 0.0:   y_i = 0.0
@@ -43,7 +42,6 @@ def control_flujo(adc, pwm, r, cmd):
         y_sum += y_i
         
     y_prom = y_sum / 20.0
-
     e0 = r - y_prom
 
     if cmd == 'f': 
@@ -56,8 +54,10 @@ def control_flujo(adc, pwm, r, cmd):
         else:
             KP = 0.000126
             KI_TS = 0.000032166
+            
+        u0 = u1+ KP*(e0) + KI_TS*e1
 
-    elif cmd == 's'
+    elif cmd == 's':
         u0 = st.u1 + KP*(e0 - st.e1) + KI_TS*e0 + KD_div_TS*(e0 - 2*st.e1 + st.e2)
         
     if u0 < 0.0:
@@ -80,11 +80,11 @@ def v_to_lpm(v):
     elif v > VMAX_O2:
         v = VMAX_O2
 
-    inside = C0 - C1 * v
-    if inside <= 0:
+    raiz = C0 - C1 * v
+    if raiz <= 0:
         return 0.0
 
-    q = K_FLOW * math.sqrt(inside)
+    q = K_FLOW * math.sqrt(raiz)
 
     if q < 0.0:
         q = 0.0
