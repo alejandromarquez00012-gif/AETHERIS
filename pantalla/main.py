@@ -10,31 +10,56 @@ import serial_reader as sr
 # ============================================================
 y=[]
 def agregarValor(payload):
+    limx_min, limx_max = grafica["ax"].get_xlim()
+    if len(y) > limx_max:
+        y.pop(0)
     y.append(payload)
     xvalue=list(range(len(y)))
     grafica["line"].set_data(xvalue,y)
     grafica["canvas"].draw_idle()
 indice = 1
 btns_focus = {}
+bool_mod_text = False
+bool_combo = False
+
 def focus(payload):
     global indice
+    global bool_mod_text
+    global bool_combo
     claves = list(btns_focus.keys()) 
     clave_actual = claves[indice]
-    ui.btn_deseleccionar(btns_focus[clave_actual])
+    ui.aplicar_estilo_default(btns_focus[clave_actual],True)
     if payload == "enter":
-        btns_focus[clave_actual].invoke()
+        if clave_actual in text_alarmas or clave_actual in text_manual_automatico or clave_actual in text_manual_automatico_ganancias :
+            bool_mod_text = not bool_mod_text
+        elif clave_actual in combo_manual_automatico:
+            bool_combo = not bool_combo
+        else:
+            btns_focus[clave_actual].invoke()
     else:
+        limites = obtener_limites(clave_actual)
         if payload == "arriba":
-            indice = (indice + 1) % len(claves)  
+            if bool_mod_text:
+                ui.modificar_text_box(btns_focus[clave_actual],limites)
+            elif bool_combo:
+                ui.combo_box_navegar(btns_focus[clave_actual],"arriba")
+            else:
+                indice = (indice + 1) % len(claves)  
         elif payload == "abajo":
-            indice = (indice - 1) % len(claves)
+            if bool_mod_text:
+                ui.modificar_text_box(btns_focus[clave_actual],limites,False)
+            elif bool_combo:
+                ui.combo_box_navegar(btns_focus[clave_actual],"abajo")
+            else:
+                indice = (indice - 1) % len(claves)
         
-        clave_actual = claves[indice]
-        ui.btn_seleccionar(btns_focus[clave_actual])
-
+    clave_actual = claves[indice]
+    ui.guardar_estilo(btns_focus[clave_actual])
+    ui.aplicar_estilo_default(btns_focus[clave_actual],False)
 sistema = False
 def handler_on_off(payload):
     onoff()
+
 def onoff():
     global sistema
     sistema = not sistema
@@ -46,13 +71,16 @@ def onoff():
 
 def cambio_variable(value):
     var_metrica.set(value)
-
 def cambio_x(value):
     global grafica
+    global y 
+    y.clear()
     grafica["ax"].set_xlim(0,int(value))
     grafica["canvas"].draw_idle()
 def mandar_limites():
+    sr.enviar_comando({"gain":{"kp":1,"ki":1,"kd":1}})
     None
+bool_toggle_param = True
 # ============================================================
 # HANDLERS
 # ============================================================
@@ -60,43 +88,104 @@ def mandar_limites():
 # ============================================================
 # FUNCIONES
 # ============================================================
-    
+def toggle():
+    global btns_manual_automatico
+    global bool_toggle_param
+    bool_toggle_param = not bool_toggle_param
+    if bool_toggle_param:
+        ui.mostrar_objeto(subframe_parametros)
+        ui.btn_actualizar_texto(btns_manual_automatico["btn_toggle"],"Ganancias") 
+        btns_focus.update(text_manual_automatico) 
+        borrar_dic(btns_focus,text_manual_automatico_ganancias)
+    else:
+        ui.mostrar_objeto(subframe_ganancias)
+        ui.btn_actualizar_texto(btns_manual_automatico["btn_toggle"],"Parametros")
+        borrar_dic(btns_focus,text_manual_automatico)
+        btns_focus.update(text_manual_automatico_ganancias)
+
+def enviar_control():
+    None
+
+def obtener_limites(widget):
+    # en base al control definir limites del text box
+    limites = (0,0)
+    if widget in text_manual_automatico_ganancias:
+        limites = (0,1)
+    else:
+        limites = (85,95)
+    return limites
+
+def borrar_dic(dic,remove):
+    for r in remove:
+        dic.pop(r) 
 
 
-def mostrar_pantalla(frame_destino,icono_extra=0):
-    global var_etiqueta
+def mostrar_pantalla(frame_destino, icono_extra=0):
     global ventana_actual
     global btns_focus
     global indice 
-    indice = 1
+    global bool_toggle_param
+    try:
+        claves = list(btns_focus.keys()) 
+        clave_actual = claves[indice]
+        ui.aplicar_estilo_default(btns_focus[clave_actual],True)
+    except:
+        pass
+    # Reiniciar foco
+    indice = 0
     btns_focus.clear()
-    
+
     TODOS = [frame_principal, frame_alarmas, frame_auto_manual]
-    OVERLAYS = [etiqueta_sivora, btns_grales["btn_onOff"],imlogo,btns_grales["btn_regresar"]]
+
+    # OVERLAYS base (copia)
+    overlays = [
+        etiqueta_sivora,
+        btns_grales["btn_onOff"],
+        imlogo
+    ]
+    ui.reiniciar_estilo()
+
+    # -----------------------------------
+    #  PANTALLA AUTO / MANUAL
+    # -----------------------------------
     if frame_destino is frame_auto_manual:
+
+        # botones navegables
         btns_focus.update(btns_manual_automatico)
         btns_focus.update(btns_grales)
+        btns_focus.update(combo_manual_automatico)
+        btns_focus.update(text_manual_automatico)
+        #btns_focus.update(text_manual_automatico_ganancias)
+        # agregar botón regresar
+        overlays.append(btns_grales["btn_regresar"])
+        overlays.append(subframe_parametros)
+
         if icono_extra == 1:
-            OVERLAYS.append(imauto)
-            var_etiqueta.set("SpO2:")
-            
+            overlays.append(imauto)
         else:
-            OVERLAYS.append(immanual)
-            var_etiqueta.set("flujo:")
+            overlays.append(immanual)
+
+    # -----------------------------------
+    #  PANTALLA ALARMAS
+    # -----------------------------------
     elif frame_destino is frame_alarmas:
+
         btns_focus.update(btns_alarmas)
         btns_focus.update(btns_grales)
-    else:
-        OVERLAYS.remove(btns_grales["btn_regresar"])
-        btns_focus.update(btns_principal)
-        btns_focus["btn_onOff"]=btns_grales["btn_onOff"]
-    ui.mostrar_frame(frame_destino, TODOS, OVERLAYS)
+        btns_focus.update(text_alarmas)
+        overlays.append(btns_grales["btn_regresar"])
 
-def usar_frames(excepto=None):
-    todos = [frame_principal, frame_auto_manual, frame_alarmas]
-    if excepto is None:
-        return todos
-    return [f for f in todos if f not in excepto]
+    # -----------------------------------
+    #  PANTALLA PRINCIPAL u otras
+    # -----------------------------------
+    else:
+        btns_focus.update(btns_principal)
+        # agregar solo on/off a foco
+        btns_focus["btn_onOff"] = btns_grales["btn_onOff"]
+
+    # Mostrar frame
+    ui.mostrar_frame(frame_destino, TODOS, overlays)
+
 # ============================================================
 # FUNCIONES
 # ============================================================
@@ -138,14 +227,28 @@ frame_auto_manual = ui.crear_frame(app,"white")
 
 subframe_modos = ui.crear_subframe(frame_principal,400,150,"black",0.33,0.8)
 subframe_grafica = ui.crear_subframe(frame_auto_manual,525,300,"black",0.65,0.48)
-subframe_variable_numerico = ui.crear_subframe(frame_auto_manual,200,300,"black",0.15,0.48)
 subframe_limites = ui.crear_subframe(frame_alarmas,650,300,"black",0.5,0.47)
+w = 200
+h = 300
+subframe_parametros = ui.crear_subframe(frame_auto_manual,w,h,"black",0.15,0.48)
+subframe_ganancias = ui.crear_subframe(frame_auto_manual,w,h,"black",0.15,0.48)
 """ DECLARACION FRAMES """
 
-var_etiqueta = ui.crear_stringvar(subframe_grafica)
-var_variable = ui.crear_stringvar(subframe_grafica,"-.-")
-var_metrica = ui.crear_stringvar(subframe_grafica,"-")
-var_rango = ui.crear_stringvar(subframe_grafica,"-")
+
+""" DECLARACION VAR """
+var = {}
+def init_var():
+    var["var_error"] = ui.crear_stringvar(subframe_grafica,"100")
+    var["var_flujo"] = ui.crear_stringvar(subframe_grafica,"100")
+    var["var_spo2"] = ui.crear_stringvar(subframe_grafica,"90")
+
+    var["var_metrica"] = ui.crear_stringvar(subframe_grafica,"-")
+    var["var_rango"] = ui.crear_stringvar(subframe_grafica,"-")
+    var["var_toogle"] = ui.crear_stringvar(valor_inicial="Ganancias")
+init_var()
+
+""" DECLARACION VAR """
+
 
 """ FRAME PRINCIPAL """
 btns_principal={}
@@ -177,33 +280,75 @@ def config_Frame_alarmas():
     limite_sup = ui.crear_etiqueta(subframe_limites,20, "Límite superior (%)", x=0.45, y=0.12)
     limite_inf = ui.crear_etiqueta(subframe_limites,20, "Límite inferior (%)", x=0.75, y=0.12)
 
-    text_alarmas["aceptable_ls"] = ui.crear_cuadro_texto(subframe_limites,0.45,0.26,75,25,valor_inicial="100")
-    text_alarmas["regular_ls"] = ui.crear_cuadro_texto(subframe_limites,0.45,0.46,75,25,valor_inicial="94.9")
-    text_alarmas["bajo_ls"] = ui.crear_cuadro_texto(subframe_limites,0.45,0.66,75,25,valor_inicial="89.9")
-    text_alarmas["riesgo_ls"] = ui.crear_cuadro_texto(subframe_limites,0.45,0.86,75,25,valor_inicial="86.7")
+    w = 90
+    h = 25
 
-    text_alarmas["aceptable_li"] = ui.crear_cuadro_texto(subframe_limites,0.75,0.26,75,25,valor_inicial="95")
-    text_alarmas["regular_li"] = ui.crear_cuadro_texto(subframe_limites,0.75,0.46,75,25,valor_inicial="90")
-    text_alarmas["bajo_li"] = ui.crear_cuadro_texto(subframe_limites,0.75,0.66,75,25,valor_inicial="87")
-    text_alarmas["riesgo_li"] = ui.crear_cuadro_texto(subframe_limites,0.75,0.86,75,25,valor_inicial="15")
-    btns_alarmas["aplicar_cambio"] = ui.crear_boton(frame_alarmas,"Aplicar cambios",150,60,0.5,0.86,mandar_limites)
+    text_alarmas["aceptable_ls"] = ui.crear_cuadro_texto(subframe_limites, 0.45, 0.26, w, h, valor_inicial="100")
+    text_alarmas["regular_ls"]   = ui.crear_cuadro_texto(subframe_limites, 0.45, 0.46, w, h, valor_inicial="94.9")
+    text_alarmas["bajo_ls"]      = ui.crear_cuadro_texto(subframe_limites, 0.45, 0.66, w, h, valor_inicial="89.9")
+    text_alarmas["riesgo_ls"]    = ui.crear_cuadro_texto(subframe_limites, 0.45, 0.86, w, h, valor_inicial="86.7")
+
+    text_alarmas["aceptable_li"] = ui.crear_cuadro_texto(subframe_limites, 0.75, 0.26, w, h, valor_inicial="95")
+    text_alarmas["regular_li"]   = ui.crear_cuadro_texto(subframe_limites, 0.75, 0.46, w, h, valor_inicial="90")
+    text_alarmas["bajo_li"]      = ui.crear_cuadro_texto(subframe_limites, 0.75, 0.66, w, h, valor_inicial="87")
+    text_alarmas["riesgo_li"]    = ui.crear_cuadro_texto(subframe_limites, 0.75, 0.86, w, h, valor_inicial="15")
+
+    btns_alarmas["aplicar_cambio"] = ui.crear_boton(frame_alarmas, "Aplicar cambios", 150, 60, 0.5, 0.86, mandar_limites)
+    
 config_Frame_alarmas()
 """ FRAME ALARMAS """
 
 """ FRAME MANUAL/AUTOMATICO """
 btns_manual_automatico = {}
+combo_manual_automatico = {}
+etiquetas_manual_automatico = {}
+text_manual_automatico = {}
+text_manual_automatico_ganancias = {}
 def configFrame_m_a():
     global grafica
-    ui.crear_etiqueta(subframe_variable_numerico,20,
-        variable=var_etiqueta,x=0.5, y=0.8)
-    ui.crear_etiqueta(subframe_variable_numerico,20,
-        variable=var_variable,x=0.5,y=0.9)
-    ui.crear_combobox(subframe_grafica,["Flujo","SpO2"],
-        cambio_variable,0.5,0.1,variable=var_metrica)
-    grafica=ui.crear_grafica_linea(subframe_grafica,
-        xlabel="s",ylabel="%",x_lim=(0,20),y_lim=(0,15))
-    ui.crear_combobox(subframe_grafica,["10","20","30","40","50"],
-        cambio_x,0.5,0.9,variable=var_rango)
+    grafica=ui.crear_grafica_linea(subframe_grafica,xlabel="s",ylabel="%",x_lim=(0,20),y_lim=(0,15))
+
+    y_init = 0.08
+    y_separacion = 0.14
+    delta_y = 0.11
+    tamano = 20
+    w = 70
+    h = 8
+    etiquetas_manual_automatico["etiqueta_referencia"] = ui.crear_etiqueta(subframe_parametros,tamano,"Referencia",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    text_manual_automatico["referencia"] = ui.crear_cuadro_texto(subframe_parametros,0.5,y_init,w,h,"85.0")
+    y_init = y_init + y_separacion
+    etiquetas_manual_automatico["etiqueta_flujo"] = ui.crear_etiqueta(subframe_parametros,tamano,"Flujo",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    etiquetas_manual_automatico["etiqueta_valor_flujo"] = ui.crear_etiqueta(subframe_parametros,20,variable=var["var_flujo"],x=0.5,y=y_init)
+    y_init = y_init + y_separacion
+    etiquetas_manual_automatico["etiqueta_spo2"] = ui.crear_etiqueta(subframe_parametros,tamano,"SpO2",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    etiquetas_manual_automatico["etiqueta_valor_spo2"] = ui.crear_etiqueta(subframe_parametros,20,variable=var["var_spo2"],x=0.5,y=y_init)
+    y_init = y_init + y_separacion
+    etiquetas_manual_automatico["etiqueta_error"] = ui.crear_etiqueta(subframe_parametros,tamano,"Error",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    etiquetas_manual_automatico["etiqueta_valor_error"] = ui.crear_etiqueta(subframe_parametros,20,variable=var["var_error"],x=0.5,y=y_init)
+    y_init = 0.08
+    y_separacion = 0.2
+    delta_y = 0.11
+    etiquetas_manual_automatico["etiqueta_kp"] = ui.crear_etiqueta(subframe_ganancias,tamano,"Ganancia Kp",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    text_manual_automatico_ganancias["kp"] = ui.crear_cuadro_texto(subframe_ganancias,0.5,y_init,w,h,"0.0")
+    y_init = y_init + y_separacion
+    etiquetas_manual_automatico["etiqueta_ki"] = ui.crear_etiqueta(subframe_ganancias,tamano,"Ganancia Ki",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    text_manual_automatico_ganancias["ki"] = ui.crear_cuadro_texto(subframe_ganancias,0.5,y_init,w,h,"0.0")
+    y_init = y_init + y_separacion
+    etiquetas_manual_automatico["etiqueta_kd"] = ui.crear_etiqueta(subframe_ganancias,tamano,"Ganancia Kd",x=0.5, y=y_init,fuente = "bold")
+    y_init = y_init + delta_y
+    text_manual_automatico_ganancias["kd"] = ui.crear_cuadro_texto(subframe_ganancias,0.5,y_init,w,h,"0.0")
+
+    combo_manual_automatico["combo_variable"] = ui.crear_combobox(subframe_grafica,["Flujo","SpO2"],cambio_variable,0.5,0.1,variable=var["var_metrica"])
+    combo_manual_automatico["combo_rango"] = ui.crear_combobox(subframe_grafica,["10","20","30","40","50"],cambio_x,0.5,0.9,variable=var["var_rango"])
+    btns_manual_automatico["btn_toggle"] = ui.crear_boton(frame_auto_manual,"Ganancias",150,60,0.555,0.86,toggle)
+    btns_manual_automatico["btn_envio"] = ui.crear_boton(frame_auto_manual,"Actualizar control",150,60,0.353,0.86,enviar_control)
+    
 configFrame_m_a()
 """ FRAME MANUAL/AUTOMATICO """
 

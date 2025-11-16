@@ -28,13 +28,4 @@ def init_irq(clave, _handler):
     valor_trigger = configIRQ[clave]["trigger"]
     pines[clave].irq(handler=_handler,trigger = valor_trigger)
     
-def set_color(r, g, b):
-    global np
-    np[0] = (r, g, b)
-    np.write()
 
-def configRGB():
-    global np
-    NEO_PIN = 8          
-    NUM_LEDS = 1
-    np = neopixel.NeoPixel(Pin(NEO_PIN), NUM_LEDS)   

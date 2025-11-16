@@ -4,7 +4,7 @@ from PIL import Image
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-
+formato_estandar = {}
 # ============================================================
 # GRAFICA
 # ============================================================
@@ -99,7 +99,6 @@ def limpiar_grafica_linea(refs):
 # ============================================================
 # FRAMES / CONTENEDORES
 # ============================================================
-
 def crear_frame(root, fg=None):
     """
     Crea un frame de pantalla completa (usa place con relwidth/relheight = 1).
@@ -119,7 +118,7 @@ def crear_frame(root, fg=None):
     )
     return frame_principal
 
-def crear_subframe(parent, w, h, border_color, relx, rely,
+def crear_subframe(parent, w, h, border_color="black", relx=0.5, rely=0.5,
                    fg="white", corner_radius=10, border_width=1):
     """
     Crea un subframe tipo tarjeta con borde.
@@ -172,6 +171,7 @@ def mostrar_frame(frame, todos, overlays=None):
 
     if overlays:
         mostrar_objeto(overlays)
+
 # ============================================================
 # ETIQUETAS / TEXTO
 # ============================================================
@@ -226,7 +226,6 @@ def crear_etiqueta(
 # ============================================================
 # IMÁGENES
 # ============================================================
-
 def cargar_imagen(ruta_local, size_x, size_y):
     """
     Carga una imagen desde ./IMGS/<ruta_local> y la devuelve
@@ -252,6 +251,7 @@ def colocar_imagen(parent, img_ctk, relx, rely):
     )
     lbl.place(relx=relx, rely=rely, anchor="center")
     return lbl
+
 # ============================================================
 # BOTONES
 # ============================================================
@@ -318,12 +318,8 @@ def btn_toggle_onoff(btn,on):
                 hover_color=hover,
                 text_color=tcolor
                 )
-def btn_seleccionar(btn):
-    btn.configure(border_color = "black",
-                border_width = 5)
-def btn_deseleccionar(btn):
-    btn.configure(border_width = 0)
-
+def btn_actualizar_texto(btn,txt):
+    btn.configure(text=txt)
 
 # ============================================================
 # COMBOBOX
@@ -364,6 +360,29 @@ def crear_combobox(
 
     combobox.place(relx=relx, rely=rely, anchor=tk.CENTER)
     return combobox
+def combo_box_navegar(combo, direccion):
+    opciones = combo._values
+    actual = combo.get()
+
+    try:
+        idx = opciones.index(actual)
+    except ValueError:
+        idx = 0
+
+    if direccion == "arriba":
+        idx = (idx - 1) % len(opciones)
+    else:  # "abajo"
+        idx = (idx + 1) % len(opciones)
+
+    nuevo_valor = opciones[idx]
+    combo.set(nuevo_valor)
+
+    # Actualizar variable asociada, si existe
+    if combo._variable is not None:
+        combo._variable.set(nuevo_valor)
+
+    if combo._command is not None:
+        combo._command(nuevo_valor)
 # ============================================================
 # TEXTBOX
 # ============================================================
@@ -397,44 +416,82 @@ def crear_cuadro_texto(
         ct.insert("0.0", str(valor_inicial))
 
     return ct
+def modificar_text_box(widget,limites,inc=True):
+    # 1) Leer el contenido actual
+    texto = widget.get("1.0", "end").strip()  # quita saltos de línea / espacios
+    _min,_max = limites
+    # 2) Convertir a entero, con manejo de errores
+    try:
+        valor = float(texto)
+    except ValueError:
+        # Si no hay número válido, iniciar en 85
+        valor = 0.0
 
+    if inc:
+        # 3) Incrementar y limitar al máximo
+        if valor < _max:
+            valor += 0.1
+    else:
+        if valor > _min:
+            valor -= 0.1
+
+    valor = round(valor,1)
+    # 4) Reemplazar el contenido del TextBox
+    widget.delete("1.0", "end")
+    widget.insert("1.0", str(valor))
+def resaltar_text_box(widget,resaltar=False):
+    None
 # ============================================================
 # STRINGVAR HELPERS
 # ============================================================
 
-def crear_stringvar(app, valor_inicial="--"):
+def crear_stringvar(app=None, valor_inicial="--"):
     """
     Crea un tk.StringVar con valor inicial.
     Devuelve ese StringVar.
     """
     return tk.StringVar(master=app, value=valor_inicial)
+def var_mod_texto(var,text):
+    var.set(text)
 # ============================================================
 # BOTÓN ON/OFF (ESTADO VISUAL)
 # ============================================================
+estilo = {}
+PROPIEDADES_SEGURO = [
+    "fg_color",
+    "border_color",
+    "border_width",
+    "text_color",
+]
+def aplicar_estilo_default(widget,aplicar = True):
+    if aplicar and estilo:
+        widget.configure(
+            border_color = estilo["border_color"],   # azul cyan brillante
+            border_width = estilo["border_width"],           # borde grueso
+            fg_color     = estilo["fg_color"],   # fondo ligeramente más claro
+            text_color   = estilo["text_color"]      # texto visible
+        )
+    elif not aplicar:
+        widget.configure(
+            border_color = "black",   # azul cyan brillante
+            border_width = 3,           # borde grueso
+            fg_color     = "#3A3A3A",   # fondo ligeramente más claro
+            text_color   = "white"      # texto visible
+        )
+    #si aplicar es falso se captura el estilo en estilo = {}
+    
+    #si es verdadero, aplicamos el estilo preciamente guardado
+def guardar_estilo(widget):
+    for prop in PROPIEDADES_SEGURO:
+        estilo[prop] = widget.cget(prop)
 
-def aplicar_estilo_onoff(boton_obj, encendido):
-    """
-    Cambia el estilo visual de UN botón ON/OFF según booleano 'encendido'.
-    - encendido == True  -> "ON", verde
-    - encendido == False -> "OFF", rojo
-    """
-    if encendido:
-        boton_obj.configure(
-            text="ON",
-            fg_color="green",
-            hover_color="green",
-            text_color="white"
-        )
-    else:
-        boton_obj.configure(
-            text="OFF",
-            fg_color="red",
-            hover_color="red",
-            text_color="white"
-        )
 def aplicar_estilo_onoff_a_lista(lista_botones, encendido):
     """
     Igual que aplicar_estilo_onoff() pero para varios botones en paralelo.
     """
     for b in lista_botones:
         aplicar_estilo_onoff(b, encendido)
+def reiniciar_estilo():
+    estilo.clear()
+
+
