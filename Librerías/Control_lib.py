@@ -1,4 +1,5 @@
 import math
+import LeerSpo2
 
 ALPHA = 0.01       
 DEADBAND = 0.1   
