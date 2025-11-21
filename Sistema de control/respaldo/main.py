@@ -1,22 +1,18 @@
-import sistema.serial_reader as sr
+import serial_reader as sr
 import time
 from machine import Pin
-import sistema.IO as io
+import IO as io
 import micropython
-import sistema.sistema as stm
-import control.control as cl
-import sistema.alarmas as al
-import max30102.Leer_Spo2_lib as mx
-
-evento_encoder = False
+import sistema as sys
+import control as cl
+import alarmas as al
 
 
-    
+
 #============== TX ==================
 #=== HANDLER ===
 def leer_encoder(pin):
-    global evento_encoder
-    evento_encoder = True
+        micropython.schedule(procesar_encoder,0)
 def btn_enter(pin):
     if io.antirrebote("Btn_enter"):
         sr.send_cmd({"focus":"enter"})
@@ -24,7 +20,7 @@ def btn_on_off(pin):
     if io.antirrebote("Btn_on_off"):
         sr.send_cmd({"sistema":"toggle"})
 #=== FUNC ===
-def procesar_encoder():
+def procesar_encoder(_):
     if io.antirrebote("up_down"):
         sr.send_cmd(io.encoder_procesar())
 #============== TX ==================
@@ -40,7 +36,7 @@ def procesar_cmd(cmd):
             sr.send_cmd_not_id()
         
 def manejar_sistema(cmd):
-    stm.toggle_estado()
+    sys.toggle_estado()
 def manejar_control(cmd):
     cl.parametros_set(cmd)
 def manejar_alarmas(cmd):
@@ -65,39 +61,20 @@ io.init_irq("Btn_D", leer_encoder)
 
 valor = 0
 valor2 = 99
-
-if mx.config_spo2():
-    sr.send_cmd({"sensor":"ok"})
-else:
-    sr.send_cmd({"sensor":"not ok"})
-flujo = 0
-
-
-
-io.set_pwm(30000)
-
-
-
-while True:    
+while True:
     lectura=sr.leer_cmd()
     if lectura is not None:
         procesar_cmd(lectura)
-    if evento_encoder:
+        
+        
+    if sys.estado:
+        valor = (valor +1 ) % 14
+        valor2= (valor2 -1)%100
+        sr.send_cmd({"flujo":valor})
+        sr.send_cmd({"spo2":valor2})
+        time.sleep_ms(10)
 
-        evento_encoder = False
-        procesar_encoder()
- 
-    if stm.estado:
-#         None
-        lectura = mx.leer_spo2()
-        if lectura is not None:
-            sr.send_cmd({"spo2":lectura})
-        flujo = (flujo + 0.1) %13
-        flujo = round(flujo,1)
-        sr.send_cmd({"flujo":flujo})
-        time.sleep_ms(5) 
- 
-
+    
 
 
 
