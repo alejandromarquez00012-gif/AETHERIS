@@ -13,7 +13,7 @@ configIRQ = {"Btn_on_off":{"trigger":Pin.IRQ_FALLING},
              }
 pines = {}
 
-np=None
+
 
 def init_pines():
     for clave, valor in config.items():
@@ -30,19 +30,8 @@ def init_irq(clave, _handler):
 def get_value(pin):
     return pines[pin].value()
 
-def set_color(r, g, b):
-    global np
-    np[0] = (r, g, b)
-    np.write()
-
-def configRGB():
-    global np
-    NEO_PIN = 8          
-    NUM_LEDS = 1
-    np = neopixel.NeoPixel(Pin(NEO_PIN), NUM_LEDS)   
-
 last_ms = {}
-def antirrebote(nombre, intervalo_ms = 200):
+def antirrebote(nombre, intervalo_ms = 100):
     """
     Devuelve True si ya pasó suficiente tiempo desde el último evento 'nombre'.
     Devuelve False si se considera rebote.

@@ -37,12 +37,9 @@ def iniciar_lector_serial(
     except Exception as e:
         print(f"[ERROR] No se pudo abrir el puerto: {e}")
         return
-    """ topics = {"grafica","control","alarmas","led","ack","error"}
-    queues = None
-    if use_queues:
-        qs = queue_sizes or {}
-        queues = {t: queue.Queue(maxsize=qs.get(t, 100)) for t in topics} """
-    grafica_queue = {"grafica":queue.Queue(maxsize=100)}
+
+    grafica_queue = {"flujo":queue.Queue(maxsize=100),
+                    "spo2":queue.Queue(maxsize = 100)}
 
 
     _handlers = handlers or {}
@@ -79,7 +76,7 @@ def iniciar_lector_serial(
 
                 topic, payload = _parse_message(s)
                 if not topic:
-                    print("[WARN] JSON sin topic reconocido:", s)
+                    print("[WARN] JSON sin topic reconocido:\n", s)
                     continue
 
                 _dispatch(topic, payload)
@@ -94,15 +91,21 @@ def iniciar_lector_serial(
     return grafica_queue
 
 
-def enviar_comando(data: dict):
+def enviar_comando(tema: str, data =  None):
     global ser
     if ser is None or not ser.is_open:
         print("[TX] Puerto no abierto")
         return
     try:
-        linea = json.dumps(data) + "\n"
+        # Inserta el tema de recepción dentro del JSON
+        paquete = {"rx": tema}
+        if data is not None:
+            paquete.update(data)
+
+        linea = json.dumps(paquete) + "\n"
         ser.write(linea.encode("utf-8"))
         ser.flush()
-        print("[TX]", linea.strip())
+        #print("[TX]", linea.strip())
+
     except Exception as e:
         print("[TX ERROR]", e)
