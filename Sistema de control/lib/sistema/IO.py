@@ -2,12 +2,17 @@ from machine import Pin,ADC,PWM
 import neopixel
 import time
 
-config = {"Btn_on_off":{"pin":4,"modo":Pin.IN,"pull":Pin.PULL_UP},
-          "Btn_enter":{"pin":5,"modo":Pin.IN,"pull":Pin.PULL_UP},
-          "Btn_clk":{"pin":7,"modo":Pin.IN,"pull":Pin.PULL_UP},
-          "Btn_D":{"pin":0,"modo":Pin.IN,"pull":Pin.PULL_UP},
-          "ADC":{"pin":5,"modo":"ADC"},
-          "PWM":{"pin":3,"modo":"PWM"}
+config = {"Btn_on_off":{"pin":22,"modo":Pin.IN,"pull":Pin.PULL_UP},
+            "Btn_enter":{"pin":23,"modo":Pin.IN,"pull":Pin.PULL_UP},
+            "Btn_clk":{"pin":11,"modo":Pin.IN,"pull":Pin.PULL_UP},
+            "Btn_D":{"pin":10,"modo":Pin.IN,"pull":Pin.PULL_UP},
+            "ADC":{"pin":3,"modo":"ADC","pull":None},
+            "PWM":{"pin":1,"modo":"PWM","pull":None,"freq":1000},
+            "aceptable":{"pin":21,"modo":Pin.OUT,"pull":None},
+            "regular":{"pin":20,"modo":Pin.OUT,"pull":None},
+            "malo":{"pin":19,"modo":Pin.OUT,"pull":None},
+            "riesgo":{"pin":18,"modo":Pin.OUT,"pull":None},
+            "buzzer":{"pin":2,"modo":"PWM","pull":None,"freq":500}
           }
 configIRQ = {"Btn_on_off":{"trigger":Pin.IRQ_FALLING},
              "Btn_enter":{"trigger":Pin.IRQ_FALLING},
@@ -22,10 +27,10 @@ def init_pines():
         if valor["pull"] is not None:
             pines[clave] = Pin(valor["pin"],valor["modo"],valor["pull"])
         elif valor["modo"] == "ADC":
-            pines[clave] = ADC.(Pin(valor["pin"]))
+            pines[clave] = ADC(Pin(valor["pin"]))
             pines[clave].atten(ADC.ATTN_11DB)
         elif valor["modo"] == "PWM":
-            pines[clave] = PWM(Pin(valor["pin"]),freq = 1000, duty_u16 = 0)
+            pines[clave] = PWM(Pin(valor["pin"]),freq = valor["freq"], duty_u16 = 0)
         else:
             pines[clave] = Pin(valor["pin"],valor["modo"])
 
@@ -75,3 +80,9 @@ def encoder_procesar():
 
 def set_pwm(value):
 	pines["PWM"].duty_u16(value)
+
+
+def get_pwm():
+    return pines["PWM"]
+def get_adc():
+    return pines["ADC"]

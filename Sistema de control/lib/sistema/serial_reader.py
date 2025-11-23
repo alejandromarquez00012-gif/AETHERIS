@@ -74,3 +74,4 @@ def send_cmd(cmd):
 def send_cmd_not_id():
     print(json.dumps({"ack": False, "error": "cmd_no_identificado"}))
 
+
