@@ -1,0 +1,29 @@
+RANGOS BUENOS
+
+r = 95
+kp = 6.7        
+ki = .3
+kd = -17
+Ts = 2 
+error de 2% abajo a 10 min
+
+r = 94
+kp = 6.6        
+ki = .31
+kd = -17
+Ts = 2  
+error de 3% a los 10 min
+
+r = 93
+kp = 6.6        
+ki = .3
+kd = -17
+Ts = 2  
+error del 4% arriba en 13 min, a los 10 era 0%
+
+r = 92
+kp = 6        
+ki = .3
+kd = -17
+Ts = 2       
+KI_TS = ki  error del 0% a 10 min, error del 5% a los 11 min
