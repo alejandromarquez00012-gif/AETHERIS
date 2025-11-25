@@ -2,9 +2,9 @@ from time import sleep_ms
 import LeerSpO22
 from machine import Pin, PWM
 
-r = 92
-kp = 6.2        
-ki = .3
+r = 78
+kp = 6.6       
+ki = .2
 kd = -17
 Ts = 2       
 KI_TS = ki    
