@@ -65,3 +65,4 @@ def leer_spo2():
 
     return spo2
 
+

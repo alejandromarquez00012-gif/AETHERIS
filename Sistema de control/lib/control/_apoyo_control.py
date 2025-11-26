@@ -1,64 +1,86 @@
 import math
-from machine import Pin, SoftI2C
+from machine import SoftI2C, Pin
 from max30102._init_ import MAX30102, MAX30105_PULSE_AMP_MEDIUM
+
+class HeartRateMonitor:
+    def __init__(self, ventana=10):
+        self.lista = []
+        self.ventana = ventana
+
+    def agregar(self, dato):
+        self.lista.append(dato)
+
+    def calcular_spo2(self):
+        if len(self.lista) >= self.ventana:
+            prom = math.sqrt(sum(x * x for x in self.lista)) / len(self.lista)
+            spo2 = 0.0448 * prom + 70.99
+            self.lista.clear()
+            return spo2
+        return None
+    
+class FiltroExpSpo2:
+    def __init__(self, alpha=0.25):
+        self.alpha = alpha
+        self.y = None
+
+    def filtrar(self, x):
+
+        if x is None:
+            return self.y
+
+        if self.y is None:
+            self.y = x
+        else:
+            self.y = self.y + self.alpha * (x - self.y)
+        return self.y
 
 _sensor = None
 _on = False
-_lista = []
-_ventana = 10
-_ventana2 = 100
-_ventana_red = []
+_monitor = None
+_filtro = None
 
 
-def config_control():
+def config_spo2(ventana=10, alpha=.02):
+    global _sensor, _on, _monitor, _filtro
 
-    global _sensor, _on, _lista, _ventana, _ventana2, _ventana_red
-
-    # Inicializa buffers y parámetros
-    _lista = []
-    _ventana = 10
-    _ventana2 = 100
-    _ventana_red = []
-
-    # Inicializa I2C y sensor
     i2c = SoftI2C(sda=Pin(6), scl=Pin(7), freq=400000)
-    _sensor = MAX30102(i2c=i2c)
+    sensor = MAX30102(i2c=i2c)
 
-    # Verificar sensor
-    if (_sensor.i2c_address not in i2c.scan()) or (not _sensor.check_part_id()):
+    if (sensor.i2c_address not in i2c.scan()) or (not sensor.check_part_id()):
         _on = False
         return False
-    else:
-        _sensor.setup_sensor()
-        _sensor.set_sample_rate(3200)
-        _sensor.set_fifo_average(32)
-        _sensor.set_active_leds_amplitude(MAX30105_PULSE_AMP_MEDIUM)
-        _on = True
-        return True
 
+    sensor.setup_sensor()
+    sensor.set_sample_rate(3200)
+    sensor.set_fifo_average(32)
+    sensor.set_active_leds_amplitude(MAX30105_PULSE_AMP_MEDIUM)
+
+    _sensor = sensor
+    _monitor = HeartRateMonitor(ventana=ventana)
+    _filtro = FiltroExpSpo2(alpha=alpha)
+    _on = True
+    return True
 
 def leer_spo2():
     
-    global _sensor, _on, _lista, _ventana, _ventana2, _ventana_red
+    global _sensor, _on, _monitor, _filtro
 
-    if not _on or _sensor is None:
-        return "Sensor no configurado"
+    if not _on or _sensor is None or _monitor is None or _filtro is None:
+        return False
 
-    # Lectura
     _sensor.check()
     if _sensor.available():
         red = _sensor.pop_red_from_storage()
 
-        _lista.append(red)
-        _ventana_red.append(red)
-        if len(_ventana_red) > _ventana2:
-            _ventana_red.pop(0)
+        _monitor.agregar(red)
 
-        if len(_lista) >= _ventana:
-            prom = (math.sqrt(sum(x * x for x in _lista))) / len(_lista)
-            spo2 = 0.12698 * prom + 79.82
-            _lista.clear()
-            return round(spo2, 1)
+        spo2_inst = _monitor.calcular_spo2()
+
+        if spo2_inst is not None:
+            spo2_filtrada = _filtro.filtrar(spo2_inst)
+            if spo2_filtrada is not None:
+                return round(spo2_filtrada, 1)
 
     return None
+
 

@@ -697,3 +697,4 @@ class MAX30102(object):
                 # new data found
                 return True
             sleep_ms(1)
+

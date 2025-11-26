@@ -34,7 +34,8 @@ def capturar_cmd():
                     #print("se recibio")
                 except Exception:
                     # devolvemos un dict especial que indica error de parseo
-                    cmd = {"_error_parse": "json_invalido", "_raw": linea}
+                    pass
+                    #cmd = {"_error_parse": "json_invalido", "_raw": linea}
                     
     return cmd
 
@@ -59,12 +60,12 @@ def leer_cmd():
                 "error": cmd["_error_parse"],
                 "raw": cmd.get("_raw", "")
             }
-            send_cmd(_cmd)
+            #send_cmd(_cmd)
         elif "rx" in cmd:
             _cmd = cmd
         else:
             _cmd = {"ack": False, "error": "formato_dic_incorrecto", "cmd": cmd}
-            send_cmd(_cmd)
+           # send_cmd(_cmd)
             _cmd = None
     return _cmd
 
@@ -73,5 +74,6 @@ def send_cmd(cmd):
     
 def send_cmd_not_id():
     print(json.dumps({"ack": False, "error": "cmd_no_identificado"}))
+
 
 
