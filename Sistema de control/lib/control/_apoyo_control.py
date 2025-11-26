@@ -13,7 +13,7 @@ class HeartRateMonitor:
     def calcular_spo2(self):
         if len(self.lista) >= self.ventana:
             prom = math.sqrt(sum(x * x for x in self.lista)) / len(self.lista)
-            spo2 = 0.0448 * prom + 70.99
+            spo2 = 0.0448 * prom + 81
             self.lista.clear()
             return spo2
         return None

@@ -19,11 +19,16 @@ def leer_encoder(pin):
     evento_encoder = True
 # def btn_enter(io.get_pin("Btn_enter")):
 def btn_enter(pin):
-    if io.antirrebote("Btn_enter") and pin.value():
+    if io.antirrebote("Btn_enter") and not pin.value() and io.get_value("Btn_on_off"):
         sr.send_cmd({"focus":"enter"})
-# def btn_on_off(io.get_pin("Btn_on_off")):
+
 def btn_on_off(pin):
-    if io.antirrebote("Btn_on_off") and pin.value():
+    if io.antirrebote("Btn_on_off") and not pin.value() and io.get_value("Btn_enter"):
+        estado1 = io.get_value("Btn_enter")
+        estado2 = io.get_value("Btn_on_off")
+        estado3 = pin.value()
+        print(f"estado on_off {estado2} estado enter {estado1} valor pin {estado3}")
+#         None
         sr.send_cmd({"sistema":"toggle"})
 #=== FUNC ===
 def procesar_encoder():
@@ -34,10 +39,10 @@ def procesar_encoder():
 #============== RX ==================
 t1 = Timer(0)
 bool_t1 = False
+flag_send = False
 def send_control(t1):
-    None
-    #sr.send_cmd({"control":{"flujo":flujo,"spo2":spo2,"error":error}})
-    al.actualizar_alarmas(spo2)
+    global flag_send
+    flag_send = True   
 def toogle_t1():
     global bool_t1
     bool_t1 = not bool_t1
@@ -52,7 +57,6 @@ def procesar_cmd(cmd):
         if handler:
             handler(cmd)
         elif handler is None:
-            #sr.send_cmd_not_id()
             pass
         
 def manejar_sistema(cmd):
@@ -94,11 +98,15 @@ sistema = False
 # io.set_pwm(30000)
 
 
-rampa = 80
+
 spo2 = 0
 flujo = 0
 error = 0
 pwm = 0
+pwm_f = 0
+ref = 0
+p = 29490
+io.set_pwm(65535)
 while True:    
     lectura=sr.leer_cmd()
     if lectura is not None:
@@ -107,35 +115,24 @@ while True:
         evento_encoder = False
         procesar_encoder()
  
+    
     if stm.estado:
-        None
-        #control spo2
+        if flag_send:
+            flag_send = False
+#             al.actualizar_alarmas(spo2)
+#             print(f"flujo {flujo}, error {error_f} v_prom {pwm_f}, ref {ref}")
+            sr.send_cmd({"control":{"flujo":flujo,"spo2":spo2,"error":error}})
+#             p = (p+50)%65535
+            #pwm.duty_u16(int(p))
+#             io.set_pwm(65535)
+	
+#	Lectura de datos
+        flujo = cl.leer_flujo(io.get_adc())
+        flujo = round(flujo,2)
         _spo2 = cl.leer_spo2()
         if _spo2 is not None:
             spo2 = _spo2
             spo2 = round(spo2,2)
-            sr.send_cmd({"spo2":spo2})
-        #control flujo           
-        flujo,error,pwm = cl.control_variable(io.get_adc(),io.get_pwm(),"f")
-        if flujo is not None and error is not None:
-#             None
-            flujo = round(flujo,2)
-            error = round(error,2)
-            #spo2 = (spo2 + 0.01) % 100
-            
-            
-           # if spo2 < 70:
-            #    spo2 = 71
-#         rampa = (rampa + 0.01) % 100
-            
-#         time.sleep_ms(10)
-#         if rampa < 75:
-#             rampa = 80
 
-
-
-
-
-
-
-
+	#control
+        error = cl.control_variable(io.get_pwm(),flujo,spo2)

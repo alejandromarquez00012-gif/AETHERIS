@@ -98,7 +98,7 @@ def get_value(nombre):
 def get_pin(nombre):
     return pines[nombre]
 
-def antirrebote(nombre, intervalo_ms=300):
+def antirrebote(nombre, intervalo_ms=500):
     global last_ms
     now  = time.ticks_ms()
     last = last_ms.get(nombre, 0)

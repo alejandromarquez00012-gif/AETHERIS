@@ -9,8 +9,8 @@ import sistema.IO as io
 rangos = {"aceptable":98,
           "regular":95,
           "bajo":93,
-          "riesgo":80,
-          "minimo":70
+          "riesgo":92,
+          "minimo":80
           }
 alarmas = {}
 #{"rx":"alarmas","aceptable":0,"regular":0,"bajo":0,"riesgo":0,"minimo":0}
@@ -29,23 +29,47 @@ def pin_set():
 def alarmas_print():
     for clave,limites in rangos.items():
         print(f"la clave es: {clave} y sus limites: {limites}")
-        
+estado_alarma = None  # global
+def clasificar_spo2(spo2):
+    if spo2 > rangos["regular"]:
+        return "aceptable"
+    elif spo2 > rangos["bajo"]:
+        return "regular"
+    elif spo2 > rangos["riesgo"]:
+        return "bajo"
+    elif spo2 > rangos["minimo"]:
+        return "riesgo_buzzer"
+    else:
+        return "apagado"
 def actualizar_alarmas(spo2):
-    global valor
-    if valor != spo2:
-        valor = spo2
-        alarmas_off()
-        if spo2 >rangos["regular"]:
-            alarma_on("aceptable")
-        elif spo2 >rangos["bajo"]:
-            alarma_on("regular")
-        elif spo2 >rangos["riesgo"]:
-            alarma_on("bajo")
-            alarma_on("buzzer",False)
-        elif spo2 >rangos["minimo"]:
-            alarma_on("buzzer",True)
-            alarma_on("riesgo")
-    #apoyo
+    global estado_alarma
+
+    nuevo_estado = clasificar_spo2(spo2)
+
+    # Si no cambió el estado, no toques el hardware
+    if nuevo_estado == estado_alarma:
+        return
+
+    estado_alarma = nuevo_estado
+
+    # Apaga todo primero
+    alarmas_off()
+
+    # Enciende según el estado
+    if nuevo_estado == "aceptable":
+        alarma_on("aceptable")
+
+    elif nuevo_estado == "regular":
+        alarma_on("regular")
+
+    elif nuevo_estado == "bajo":
+        alarma_on("bajo")
+        alarma_on("buzzer", False)   # buzzer suave
+
+    elif nuevo_estado == "riesgo_buzzer":
+        alarma_on("buzzer", True)    # buzzer fuerte
+        alarma_on("riesgo")
+
 
 def alarma_on(alarma,b = False):
     if alarma == "buzzer" and b:
